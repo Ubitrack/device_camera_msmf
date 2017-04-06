@@ -3032,6 +3032,9 @@ namespace Ubitrack {
 			/** starts the camera */
 			void start();
 
+			/** actually start capturing **/
+			void startCapturing();
+				
 			/** stops the camera */
 			void stop();
 
@@ -3231,6 +3234,10 @@ namespace Ubitrack {
 					m_autoGPUUpload = subgraph->m_DataflowAttributes.getAttributeString("uploadImageOnGPU") == "true";
 					LOG4CPP_INFO(logger, "Upload to GPU enabled? " << m_autoGPUUpload);
 				}
+				if (m_autoGPUUpload){
+					oclManager.activate();
+					LOG4CPP_INFO(logger, "Require OpenCLManager");
+				}
 			}
 
 			// dynamically generate input ports
@@ -3347,8 +3354,14 @@ namespace Ubitrack {
 			// this copies the pixels .. in theory this is only needed for uncalibrated framegrabbers ...
 			VI.getPixels(index, (uchar*)frame->imageData, false, true);
 
-			Vision::Image bufferImage(w, h, 3, (uchar*)frame->imageData, IPL_DEPTH_8U, 1);
-			bufferImage.set_pixelFormat(Vision::Image::BGR);
+			Vision::Image::ImageFormatProperties fmt;
+			fmt.imageFormat = Vision::Image::BGR;
+			fmt.channels = 3;
+			fmt.depth = CV_8U;
+			fmt.bitsPerPixel = 24;
+			fmt.origin = 1;
+
+			Vision::Image bufferImage(w, h, fmt, (uchar*)frame->imageData);
 			// ts is LONGLONG in 100-nanosecond units
 			Measurement::Timestamp utTime = m_syncer.convertNativeToLocal(ts/10000000.);
 			handleFrame(utTime + 1000000L * m_timeOffset, bufferImage);
@@ -3416,18 +3429,29 @@ namespace Ubitrack {
 		void MSMFFrameGrabber::start()
 		{
 			if (!m_running) {
-				bool ok = open(m_desiredName);
-				// start capturing
+				if (m_autoGPUUpload) {
+					LOG4CPP_INFO(logger, "Waiting for OpenCLManager initialization callback.");
+					Vision::OpenCLManager& oclManager = Vision::OpenCLManager::singleton();
+					oclManager.registerInitCallback(boost::bind(&MSMFFrameGrabber::startCapturing, this));
+				}
+				else {
+					startCapturing();
+				}
 			}
 			Component::start();
 		}
 
 
+		void MSMFFrameGrabber::startCapturing() {
+			// start capturing
+			bool ok = open(m_desiredName);
+		}
+
 		void MSMFFrameGrabber::stop()
 		{
 			if (m_running) {
-				close();
 				// stop/pause capturing
+				close();
 			}
 			Component::stop();
 		}
@@ -3449,11 +3473,13 @@ namespace Ubitrack {
 			boost::shared_ptr< Vision::Image > pColorImage;
 			bool bColorImageDistorted = true;
 
+			Vision::Image::ImageFormatProperties fmt;
+
 			if ((m_desiredWidth > 0 && m_desiredHeight > 0) &&
 				(bufferImage.width() > m_desiredWidth || bufferImage.height() > m_desiredHeight))
 			{
-				pColorImage.reset(new Vision::Image(m_desiredWidth, m_desiredHeight, 3));
-				pColorImage->copyImageFormatFrom(bufferImage);
+				bufferImage.getFormatProperties(fmt);
+				pColorImage.reset(new Vision::Image(m_desiredWidth, m_desiredHeight, fmt));
 				cv::resize(bufferImage.Mat(), pColorImage->Mat(), cv::Size(m_desiredWidth, m_desiredHeight));
 			}
 
@@ -3475,7 +3501,13 @@ namespace Ubitrack {
 
 			if (m_outPort.isConnected())
 			{
-				boost::shared_ptr< Vision::Image > pGreyImage(new Vision::Image(bufferImage.width(), bufferImage.height(), 1, IPL_DEPTH_8U));
+				bufferImage.getFormatProperties(fmt);
+				fmt.imageFormat = Vision::Image::LUMINANCE;
+				fmt.channels = 1;
+				fmt.bitsPerPixel = 8;
+
+				// @todo remove unnecessary allocation if image is on gpu .. and refactor this mess here ..
+				boost::shared_ptr< Vision::Image > pGreyImage(new Vision::Image(bufferImage.width(), bufferImage.height(), fmt));
 
 				if (pColorImage){
 					if (pColorImage->getImageState() == Image::ImageUploadState::OnCPUGPU || pColorImage->getImageState() == Image::ImageUploadState::OnGPU)

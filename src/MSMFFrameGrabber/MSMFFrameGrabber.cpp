@@ -3359,7 +3359,7 @@ namespace Ubitrack {
 			fmt.channels = 3;
 			fmt.depth = CV_8U;
 			fmt.bitsPerPixel = 24;
-			fmt.origin = 1;
+			fmt.origin = 0;
 
 			Vision::Image bufferImage(w, h, fmt, (uchar*)frame->imageData);
 			// ts is LONGLONG in 100-nanosecond units

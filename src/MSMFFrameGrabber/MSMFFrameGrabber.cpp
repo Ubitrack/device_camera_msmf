@@ -3060,6 +3060,12 @@ namespace Ubitrack {
 				return Measurement::Matrix3x3(t, m_undistorter->getMatrix());
 			}
 
+            /** handler method for incoming pull requests */
+            Measurement::CameraIntrinsics getCameraModel(Measurement::Timestamp t)
+            {
+                return Measurement::CameraIntrinsics(t, m_undistorter->getIntrinsics());
+            }
+
 			// shift timestamps (ms)
 			int m_timeOffset;
 
@@ -3128,6 +3134,7 @@ namespace Ubitrack {
 			Dataflow::PushSupplier< Measurement::ImageMeasurement > m_outPort;
 			Dataflow::PushSupplier< Measurement::ImageMeasurement > m_colorOutPort;
 			Dataflow::PullSupplier< Measurement::Matrix3x3 > m_intrinsicsPort;
+            Dataflow::PullSupplier< Measurement::CameraIntrinsics > m_cameraModelPort;
 
 			Dataflow::PushSupplier< Measurement::ImageMeasurement > m_outPortRAW;
 			boost::shared_ptr < Dataflow::PushConsumer< Measurement::CameraIntrinsics > > m_intrinsicInPort;
@@ -3165,6 +3172,7 @@ namespace Ubitrack {
 			, m_outPort("Output", *this)
 			, m_colorOutPort("ColorOutput", *this)
 			, m_intrinsicsPort("Intrinsics", *this, boost::bind(&MSMFFrameGrabber::getIntrinsic, this, _1))
+            , m_cameraModelPort("CameraModel", *this, boost::bind(&MSMFFrameGrabber::getCameraModel, this, _1))
 			, m_outPortRAW("OutputRAW", *this)
 			, m_autoGPUUpload(false)
 			, index(-1)

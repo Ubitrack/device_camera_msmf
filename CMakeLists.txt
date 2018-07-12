@@ -7,7 +7,7 @@ cmake_minimum_required(VERSION 3.4.0)
 include(CheckIncludeFile)
 
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
-conan_basic_setup(KEEP_RPATHS)
+conan_basic_setup(TARGETS)
 
 include(GNUInstallDirs)
 include(cmake/UbitrackConfig)
@@ -34,9 +34,6 @@ IF(OpenCL_FOUND)
   MESSAGE(STATUS "Found OpenCL: ${OpenCL_INCLUDE_DIR} - ${OpenCL_LIBRARY}")
 ENDIF(OpenCL_FOUND)
 
-set(UBITRACK_EXTRA_LIBS ${OPENGL_gl_LIBRARY} ${OPENGL_glu_LIBRARY} ${OpenCL_LIBRARY})
-
-
 IF(WIN32)
 	FIND_PACKAGE(WindowsSDK)
 	if(WINDOWSSDK_FOUND)
@@ -46,7 +43,7 @@ IF(WIN32)
 		                              PATHS ${WINDOWSSDK_INCLUDE_DIR}
 		                              DOC "Path in which the file Mfapi.h is located." )
 		MESSAGE(STATUS "Found Windows SDK: ${WINDOWSSDK_LATEST_NAME} -> ${MSMF_INCLUDE_DIR}")
-		include_directories(${MSMF_INCLUDE_DIR})
+	    include_directories(${MSMF_INCLUDE_DIR})
 		set(WITH_MSMF ON)
 	endif(WINDOWSSDK_FOUND)
 
@@ -60,16 +57,7 @@ IF(WIN32)
 
 		add_subdirectory(src/MSMFFrameGrabber)
 
-		# collect all utql patterns from module for installation
-		file(GLOB _utql_patterns "doc/utql/*.xml" "doc/utql/*/*.xml"  "doc/utql/*/*/*.xml")
-		foreach(pfile ${_utql_patterns})
-		  string(REGEX REPLACE "^.*/doc/utql/" "" pfile2 "${pfile}")
-		  GET_FILENAME_COMPONENT(fpath ${pfile2} PATH)
-		  IF(fpath)
-			install(FILES ${pfile} DESTINATION "${UBITRACK_UTQLPATTERN_INSTALL_DIRECTORY}/${fpath}" COMPONENT data)
-		  ELSE(fpath)
-		    install(FILES ${pfile} DESTINATION "${UBITRACK_UTQLPATTERN_INSTALL_DIRECTORY}" COMPONENT data)
-		  ENDIF(fpath)
-		endforeach()
+		ubitrack_install_utql("doc/utql/*.xml" "doc/utql/*/*.xml"  "doc/utql/*/*/*.xml")
+		ubitrack_install_doc("doc/utqlDoc/*" "doc/utqlDoc/*/*" "doc/utqlDoc/*/*/*")
 	endif(HAVE_MSMF)
 ENDIF(WIN32)

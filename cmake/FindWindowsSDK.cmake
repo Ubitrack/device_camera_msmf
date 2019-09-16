@@ -73,6 +73,9 @@ macro(_winsdk_announce)
 endmacro()
 
 set(_winsdk_win10vers
+	10.0.17763.0 
+	10.0.17134.0 
+	10.0.16299.0 
 	10.0.14393.0 # Redstone aka Win10 1607 "Anniversary Update"
 	10.0.10586.0 # TH2 aka Win10 1511
 	10.0.10240.0 # Win10 RTM
